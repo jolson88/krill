@@ -1,0 +1,91 @@
+ Milestones
+- Every Friday: Time with Josiah
+- Every Saturday: Time with Katie
+- Every Tuesday: Time with Josiah
+- Every Wednesday: Time with Katie
+
+# Backlog
+- [NotStarted] [Personal] Declutter living and dining rooms
+- [Finished] [Personal] Identify open source Rust projects to contribute to
+- [NotStarted] [Work] Contribute code at work
+- [Finished] [Personal] Create Chip-8 Emulator
+- [Finished] [Personal] Start new project in Rust
+- [InProgress] [Personal] Program an NES demo
+- [Finished] [Personal] Draft next steps for Career
+- [Finished] [Work] Restart bullet journaling
+
+# Weekly Goals
+- [Finished] [Work] Fix GRDC imaging issues
+- [Finished] [Work] Get bullet journaling started again
+- [Finished] [Personal] Open First Rust PR
+
+## Thursday, 12
+- [Finished] [Work] Merge imaging PR
+- [Finished] [Work] Review at least one other PR
+- [Finished] [Work] Catch up on email
+- [Finished] [Work] Startup bullet journal
+- [Finished] [Personal] Start work on first Clippy task
+        
+## Friday, 13
+- [Finished] [Personal] Copy 'glog' helper from work to personal Fish shell
+- [Finished] [Personal] Take out garbage; litter and pizza boxes
+- [Finished] [Personal] Clean up trash around chair
+
+# Weekly Goals
+- [Finished] [Work] Merge PSCC docs
+- [Finished] [Work] Take SAP Learning courses
+- [Finished] [Work] Open PR on test plan improvements
+- [Migrated] [Work] Prepare North Star Vision presentation
+- [Finished] [Personal] Complete Easy 6502 course
+- [Finished] [Personal] Start krill/journaling project
+- [Finished] [Personal] Learn more about Rust and memory layout
+
+## Monday, 16
+- [Finished] [Work] Update PSCC docs PR and get out for review
+- [Finished] [Work] Start identifying test gaps via test coverage numbers
+- [Finished] [Personal] Complete Easy 6502 course
+- [Finished] [Personal] Clean trash around chair
+- [Finished] [Personal] Take out trash and recycling
+
+## Tuesday, 17th
+- [Finished] [Work] Complete two outstanding training courses
+- [Finished] [Work] Research c development and memory management
+
+## Wednesday, 18
+- [Finished] [Work] Start North Star vision presentation
+- [Finished] [Work] Get PR open for test coverage plan
+- [Finished] [Work] Finish remaining learning courses
+- [Finished] [Personal] Create template of Krill project
+- [Finished] [Personal] How to find memory layout of struct in Rust?
+
+## Thursday, 19
+- [Finished] [Work] Finish rough draft of vision presentation
+- [Finished] [Personal] Glue up fridge handle
+- [Finished] [Personal] Put away VR boxes
+- [Finished] [Personal] Take out trash
+- [Migrated] [Personal] Learn about necessity of alignment of structs in memory
+- [Migrated] [Personal] Take a first peek of MIR of a simple program
+
+## Friday, 20
+- [Migrated] [Work] Finish North Star presentation
+- [Finished] [Personal] Learn about necessity of alignment of structs in memory
+- [Closed] [Personal] Take a first peek of MIR of a simple program
+- [Finished] [Personal] Start perf investigation of different Task layouts
+
+# Weekly goals
+- [InProgress] [Work] Prepare North Star Vision presentation
+- [NotStarted] [Work] Open PR on npm package upgrades
+- [NotStarted] [Work] Get PR started on upgrade node version
+- [NotStarted] [Personal] Make progress on Krill project
+- [NotStarted] [Personal] Do data structure exploration in Rust
+- [NotStarted] [Personal] Create "Sparse Vector" data type in Rust
+- [NotStarted] [Personal] Find next rust-clippy issue to work on
+
+## Monday, 23
+- [Finished] [Work] Finish Service Mesh section of North Star PPT
+- [Finished] [Work] Upgrade npm package upgrades
+- [Finished] [Work] Finish data modeling section of North Star PPT
+- [Finished] [Personal] Watch video on Rust module system (2018)
+- [Finished] [Personal] Prepare room to move desk to new location
+- [Finished] [Personal] Move desk
+- [NotStarted] [Personal] Parse md file and list all tasks in file
