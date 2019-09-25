@@ -2,9 +2,9 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
-struct Tasks {
+struct Items {
     list: Vec<String>,
-    latest_task_day: usize,
+    current_start: usize,
 }
 
 fn main() -> std::io::Result<()> {
@@ -14,34 +14,56 @@ fn main() -> std::io::Result<()> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
-    let tasks = get_tasks(contents);
-    println!("{}", tasks.list[tasks.latest_task_day..].join("\n"));
+    let backlog = get_backlog(&contents);
+    let goals = get_all_items(&contents, &is_week_header);
+    let tasks = get_all_items(&contents, &is_day_header);
+    println!("Backlog: \n{}\n", backlog.join("\n"));
+    println!(
+        "Current goals: \n{}\n",
+        goals.list[goals.current_start..].join("\n")
+    );
+    println!(
+        "Current tasks: \n{}\n",
+        tasks.list[tasks.current_start..].join("\n")
+    );
     Ok(())
 }
 
-fn get_tasks(raw_content: String) -> Tasks {
-    let mut tasks = vec![];
+fn get_backlog(raw_content: &str) -> Vec<String> {
+    let mut items = vec![];
     let lines = raw_content.lines();
-    let mut reading_day = false;
-    let mut day_indices = vec![];
+    let mut in_backlog = false;
     for line in lines {
-        if line.starts_with('#') {
-            if entering_day_section(line) {
-                reading_day = true;
-                day_indices.push(tasks.len());
-            } else {
-                reading_day = false;
-            }
+        if is_backlog_header(line) {
+            in_backlog = true;
+        } else if in_backlog && is_item_entry(line) {
+            items.push(line.to_owned());
+        } else {
+            in_backlog = false;
         }
+    }
+    items
+}
 
-        if reading_day && line.starts_with("- ") {
-            tasks.push(line.to_owned());
+fn get_all_items(raw_content: &str, header: impl Fn(&str) -> bool) -> Items {
+    let mut items = vec![];
+    let lines = raw_content.lines();
+    let mut in_section = false;
+    let mut section_indices = vec![];
+    for line in lines {
+        if header(line) {
+            in_section = true;
+            section_indices.push(items.len());
+        } else if in_section && is_item_entry(line) {
+            items.push(line.to_owned());
+        } else {
+            in_section = false;
         }
     }
 
-    // It's possible for days to exist with no tasks. If this happens,
-    // there could be one or more indices on the day_indices stack that have indices
-    // past the end of the vector. For example:
+    // It's possible for sections to exist with no items. If this happens,
+    // there could be one or more indices on the section_indices stack that have indices
+    // past the end of the items. For example:
     // ## Monday, 1st
     // - Task 1 (day_index gets pushed as 0 as the length before this was 0)
     // ## Tuesday, 2nd
@@ -49,21 +71,33 @@ fn get_tasks(raw_content: String) -> Tasks {
     // As Tuesday is a new day, the length of 1 would get pushed onto the day_indices stack).
     // So we need to continue popping until we have an index that reflects the last day entry with
     // task entries in it (0 in the above case).
-    let mut day_index = 0;
-    while let Some(idx) = day_indices.pop() {
-        day_index = idx;
-        if day_index < tasks.len() {
+    let mut current_start = 0;
+    while let Some(idx) = section_indices.pop() {
+        current_start = idx;
+        if current_start < items.len() {
             break;
         }
     }
 
-    Tasks {
-        list: tasks,
-        latest_task_day: day_index,
+    Items {
+        list: items,
+        current_start,
     }
 }
 
-fn entering_day_section(line: &str) -> bool {
+fn is_item_entry(line: &str) -> bool {
+    line.starts_with("- ")
+}
+
+fn is_backlog_header(line: &str) -> bool {
+    line.eq("# Backlog")
+}
+
+fn is_week_header(line: &str) -> bool {
+    line.starts_with("# Weekly")
+}
+
+fn is_day_header(line: &str) -> bool {
     line.starts_with("## Monday")
         || line.starts_with("## Tuesday")
         || line.starts_with("## Wednesday")

@@ -1,4 +1,4 @@
- Milestones
+# Milestones
 - Every Friday: Time with Josiah
 - Every Saturday: Time with Katie
 - Every Tuesday: Time with Josiah
