@@ -4,7 +4,7 @@ use std::io::prelude::*;
 
 struct Items {
     list: Vec<String>,
-    current_start: usize,
+    recent_start: usize,
 }
 
 fn main() -> std::io::Result<()> {
@@ -14,27 +14,31 @@ fn main() -> std::io::Result<()> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
-    let backlog = get_backlog(&contents);
-    let goals = get_all_items(&contents, &is_week_header);
-    let tasks = get_all_items(&contents, &is_day_header);
+    let milestones = parse_section(&contents, &is_milestone_header);
+    let backlog = parse_section(&contents, &is_backlog_header);
+    let goals = parse_repeating_section(&contents, &is_week_header);
+    let tasks = parse_repeating_section(&contents, &is_day_header);
+    println!("Milestones: \n{}\n", milestones.join("\n"));
     println!("Backlog: \n{}\n", backlog.join("\n"));
     println!(
-        "Current goals: \n{}\n",
-        goals.list[goals.current_start..].join("\n")
+        "Recent goals (of {}): \n{}\n",
+        goals.list.len(),
+        goals.list[goals.recent_start..].join("\n")
     );
     println!(
-        "Current tasks: \n{}\n",
-        tasks.list[tasks.current_start..].join("\n")
+        "Recent tasks (of {}): \n{}\n",
+        tasks.list.len(),
+        tasks.list[tasks.recent_start..].join("\n")
     );
     Ok(())
 }
 
-fn get_backlog(raw_content: &str) -> Vec<String> {
+fn parse_section(raw_content: &str, is_section_header: impl Fn(&str) -> bool) -> Vec<String> {
     let mut items = vec![];
     let lines = raw_content.lines();
     let mut in_backlog = false;
     for line in lines {
-        if is_backlog_header(line) {
+        if is_section_header(line) {
             in_backlog = true;
         } else if in_backlog && is_item_entry(line) {
             items.push(line.to_owned());
@@ -45,13 +49,13 @@ fn get_backlog(raw_content: &str) -> Vec<String> {
     items
 }
 
-fn get_all_items(raw_content: &str, header: impl Fn(&str) -> bool) -> Items {
+fn parse_repeating_section(raw_content: &str, is_section_header: impl Fn(&str) -> bool) -> Items {
     let mut items = vec![];
     let lines = raw_content.lines();
     let mut in_section = false;
     let mut section_indices = vec![];
     for line in lines {
-        if header(line) {
+        if is_section_header(line) {
             in_section = true;
             section_indices.push(items.len());
         } else if in_section && is_item_entry(line) {
@@ -71,22 +75,26 @@ fn get_all_items(raw_content: &str, header: impl Fn(&str) -> bool) -> Items {
     // As Tuesday is a new day, the length of 1 would get pushed onto the day_indices stack).
     // So we need to continue popping until we have an index that reflects the last day entry with
     // task entries in it (0 in the above case).
-    let mut current_start = 0;
+    let mut recent_start = 0;
     while let Some(idx) = section_indices.pop() {
-        current_start = idx;
-        if current_start < items.len() {
+        recent_start = idx;
+        if recent_start < items.len() {
             break;
         }
     }
 
     Items {
         list: items,
-        current_start,
+        recent_start,
     }
 }
 
 fn is_item_entry(line: &str) -> bool {
     line.starts_with("- ")
+}
+
+fn is_milestone_header(line: &str) -> bool {
+    line.eq("# Milestones")
 }
 
 fn is_backlog_header(line: &str) -> bool {
