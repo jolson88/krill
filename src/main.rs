@@ -1,10 +1,28 @@
+use regex::Regex;
 use std::env;
+use std::fmt;
 use std::fs::File;
 use std::io::prelude::*;
+
+extern crate chrono;
+extern crate regex;
 
 struct Items {
     list: Vec<String>,
     recent_start: usize,
+}
+
+struct Task {
+    status: String,
+    category: String,
+    title: String,
+    //date: chrono::NaiveDate,
+}
+
+impl fmt::Display for Task {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "- [{}] [{}] {}", self.status, self.category, self.title)
+    }
 }
 
 fn main() -> std::io::Result<()> {
@@ -13,11 +31,20 @@ fn main() -> std::io::Result<()> {
     let mut file = File::open(filename)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
+    let lines: Vec<&str> = contents.lines().collect();
 
-    let milestones = parse_section(&contents, &is_milestone_header);
-    let backlog = parse_section(&contents, &is_backlog_header);
-    let goals = parse_repeating_section(&contents, &is_week_header);
-    let tasks = parse_repeating_section(&contents, &is_day_header);
+    /*
+    let milestones = parse_section(&lines, &is_milestone_header);
+    let backlog = parse_section(&lines, &is_backlog_header);
+    let goals = parse_repeating_section(&lines, &is_week_header);
+    let tasks = parse_repeating_section(&lines, &is_day_header);
+    */
+    let tasks = parse_day_sections(&lines, 2019, 9);
+    for t in tasks {
+        println!("{}", t);
+    }
+
+    /*
     println!("Milestones: \n{}\n", milestones.join("\n"));
     println!("Backlog: \n{}\n", backlog.join("\n"));
     println!(
@@ -30,18 +57,18 @@ fn main() -> std::io::Result<()> {
         tasks.list.len(),
         tasks.list[tasks.recent_start..].join("\n")
     );
+    */
     Ok(())
 }
 
-fn parse_section(raw_content: &str, is_section_header: impl Fn(&str) -> bool) -> Vec<String> {
+fn parse_section(lines: &Vec<&str>, is_section_header: impl Fn(&str) -> bool) -> Vec<String> {
     let mut items = vec![];
-    let lines = raw_content.lines();
     let mut in_backlog = false;
     for line in lines {
         if is_section_header(line) {
             in_backlog = true;
         } else if in_backlog && is_item_entry(line) {
-            items.push(line.to_owned());
+            items.push(line.to_string());
         } else {
             in_backlog = false;
         }
@@ -49,9 +76,38 @@ fn parse_section(raw_content: &str, is_section_header: impl Fn(&str) -> bool) ->
     items
 }
 
-fn parse_repeating_section(raw_content: &str, is_section_header: impl Fn(&str) -> bool) -> Items {
+fn parse_day_sections(lines: &Vec<&str>, year: i32, month: i32) -> Vec<Task> {
+    let mut tasks = vec![];
+    let mut in_section = false;
+    //let mut section_indices = vec![];
+
+    // The format of a task is:
+    // - [Status] [Category] Task description
+    // - [Status] [Category] Task description 2
+    // etc.
+    let task_re = Regex::new(r"- \[([A-Za-z]+)\] \[([A-Za-z]+)\] (.+)$").unwrap();
+
+    for line in lines {
+        if is_day_header(line) {
+            in_section = true;
+        //section_indices.push(items.len());
+        } else if in_section && is_item_entry(line) {
+            let caps = task_re.captures(line).unwrap();
+            // TODO: Don't just assume it's formatted correctly. Check for issues
+            tasks.push(Task {
+                status: caps[1].to_string(),
+                category: caps[2].to_string(),
+                title: caps[3].to_string(),
+            });
+        } else {
+            in_section = false;
+        }
+    }
+    tasks
+}
+
+fn parse_repeating_section(lines: &Vec<&str>, is_section_header: impl Fn(&str) -> bool) -> Items {
     let mut items = vec![];
-    let lines = raw_content.lines();
     let mut in_section = false;
     let mut section_indices = vec![];
     for line in lines {
@@ -59,7 +115,7 @@ fn parse_repeating_section(raw_content: &str, is_section_header: impl Fn(&str) -
             in_section = true;
             section_indices.push(items.len());
         } else if in_section && is_item_entry(line) {
-            items.push(line.to_owned());
+            items.push(line.to_string());
         } else {
             in_section = false;
         }
