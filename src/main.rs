@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use regex::Regex;
 use std::env;
 use std::fmt;
@@ -7,16 +8,27 @@ use std::io::prelude::*;
 extern crate chrono;
 extern crate regex;
 
-struct Items {
-    list: Vec<String>,
-    recent_start: usize,
+struct Journal {
+    milestones: Vec<String>,
+    backlog: Vec<Task>,
+    goals: Vec<Task>,
+    tasks: Vec<Task>,
 }
 
 struct Task {
     status: String,
     category: String,
     title: String,
-    //date: chrono::NaiveDate,
+    #[allow(dead_code)]
+    date: chrono::NaiveDate,
+}
+
+enum FileSection {
+    Milestones(Vec<String>),
+    Backlog(Vec<Task>),
+    Week(Vec<Task>),
+    Day(Vec<Task>),
+    Unrecognized,
 }
 
 impl fmt::Display for Task {
@@ -32,116 +44,150 @@ fn main() -> std::io::Result<()> {
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
     let lines: Vec<&str> = contents.lines().collect();
+    let journal = parse_month(&lines, 2019, 9);
 
-    /*
-    let milestones = parse_section(&lines, &is_milestone_header);
-    let backlog = parse_section(&lines, &is_backlog_header);
-    let goals = parse_repeating_section(&lines, &is_week_header);
-    let tasks = parse_repeating_section(&lines, &is_day_header);
-    */
-    let tasks = parse_day_sections(&lines, 2019, 9);
-    for t in tasks {
-        println!("{}", t);
-    }
+    println!("Found {} milestones", journal.milestones.len());
+    println!("Found {} tasks in backlog", journal.backlog.len());
+    println!("Found {} goals in week", journal.goals.len());
+    println!("Found {} tasks in day", journal.tasks.len());
 
-    /*
-    println!("Milestones: \n{}\n", milestones.join("\n"));
-    println!("Backlog: \n{}\n", backlog.join("\n"));
-    println!(
-        "Recent goals (of {}): \n{}\n",
-        goals.list.len(),
-        goals.list[goals.recent_start..].join("\n")
-    );
-    println!(
-        "Recent tasks (of {}): \n{}\n",
-        tasks.list.len(),
-        tasks.list[tasks.recent_start..].join("\n")
-    );
-    */
     Ok(())
 }
 
-fn parse_section(lines: &Vec<&str>, is_section_header: impl Fn(&str) -> bool) -> Vec<String> {
-    let mut items = vec![];
-    let mut in_backlog = false;
-    for line in lines {
-        if is_section_header(line) {
-            in_backlog = true;
-        } else if in_backlog && is_item_entry(line) {
-            items.push(line.to_string());
-        } else {
-            in_backlog = false;
+fn parse_month(lines: &[&str], year: i32, month: u32) -> Journal {
+    let mut journal = Journal {
+        milestones: Vec::new(),
+        backlog: Vec::new(),
+        goals: Vec::new(),
+        tasks: Vec::new(),
+    };
+
+    let sections = find_sections(&lines);
+    for (begin, end) in sections {
+        let section_lines = &lines[begin..end];
+        match parse_section(section_lines, year, month) {
+            FileSection::Milestones(mut entries) => {
+                journal.milestones.append(&mut entries);
+            }
+            FileSection::Backlog(mut tasks) => {
+                journal.backlog.append(&mut tasks);
+            }
+            FileSection::Week(mut goals) => {
+                journal.goals.append(&mut goals);
+            }
+            FileSection::Day(mut tasks) => {
+                journal.tasks.append(&mut tasks);
+            }
+            _ => {
+                // Unrecognized, do nothing
+            }
         }
     }
-    items
+    journal
 }
 
-fn parse_day_sections(lines: &Vec<&str>, year: i32, month: i32) -> Vec<Task> {
-    let mut tasks = vec![];
-    let mut in_section = false;
-    //let mut section_indices = vec![];
+/// Captures pairs of indices that determine the sections that are within the document.
+/// A "section" is a section that begins with a header ("#") and continues until the next
+/// header.
+fn find_sections(lines: &[&str]) -> Vec<(usize, usize)> {
+    let mut sections = vec![];
+    let mut prev = None;
 
+    for i in 0..lines.len() {
+        let line = lines[i];
+        if line.starts_with('#') {
+            match prev {
+                Some(idx) => {
+                    sections.push((idx, i));
+                }
+                None => {
+                    // This is the start of the first section, so we don't have something to push
+                }
+            }
+            prev = Some(i);
+        }
+    }
+
+    assert!(prev.is_some()); // We shouldn't be trying to parse a file w/ just a single header
+    sections.push((prev.unwrap(), lines.len()));
+    sections
+}
+
+fn parse_section(lines: &[&str], year: i32, month: u32) -> FileSection {
+    let header = lines[0];
+    if is_milestone_header(header) {
+        parse_milestones(lines)
+    } else if is_backlog_header(header) {
+        parse_backlog(lines, year, month)
+    } else if is_week_header(header) {
+        parse_week(lines, year, month)
+    } else if is_day_header(header) {
+        parse_day(lines, year, month)
+    } else {
+        FileSection::Unrecognized
+    }
+}
+
+fn parse_milestones(lines: &[&str]) -> FileSection {
+    let mut milestones = vec![];
+    for line in lines {
+        if is_item_entry(line) {
+            milestones.push(line.to_string());
+        }
+    }
+    FileSection::Milestones(milestones)
+}
+
+fn parse_backlog(lines: &[&str], year: i32, month: u32) -> FileSection {
+    let mut tasks = vec![];
+    for line in lines {
+        if is_item_entry(line) {
+            tasks.push(parse_task(line, year, month));
+        }
+    }
+    FileSection::Backlog(tasks)
+}
+
+fn parse_week(lines: &[&str], year: i32, month: u32) -> FileSection {
+    let mut tasks = vec![];
+    for line in lines {
+        if is_item_entry(line) {
+            tasks.push(parse_task(line, year, month));
+        }
+    }
+    FileSection::Week(tasks)
+}
+
+fn parse_day(lines: &[&str], year: i32, month: u32) -> FileSection {
+    // The day header is in format "## Day, Number", so get final two digits of string
+    let header = lines[0];
+    let day = header[header.len() - 2..].trim().parse::<u32>().unwrap();
+
+    let mut tasks = vec![];
+    for line in lines {
+        if is_item_entry(line) {
+            tasks.push(parse_task_with_day(line, year, month, day));
+        }
+    }
+    FileSection::Day(tasks)
+}
+
+fn parse_task(line: &str, year: i32, month: u32) -> Task {
+    parse_task_with_day(line, year, month, 1)
+}
+
+fn parse_task_with_day(line: &str, year: i32, month: u32, day: u32) -> Task {
     // The format of a task is:
     // - [Status] [Category] Task description
     // - [Status] [Category] Task description 2
     // etc.
     let task_re = Regex::new(r"- \[([A-Za-z]+)\] \[([A-Za-z]+)\] (.+)$").unwrap();
-
-    for line in lines {
-        if is_day_header(line) {
-            in_section = true;
-        //section_indices.push(items.len());
-        } else if in_section && is_item_entry(line) {
-            let caps = task_re.captures(line).unwrap();
-            // TODO: Don't just assume it's formatted correctly. Check for issues
-            tasks.push(Task {
-                status: caps[1].to_string(),
-                category: caps[2].to_string(),
-                title: caps[3].to_string(),
-            });
-        } else {
-            in_section = false;
-        }
-    }
-    tasks
-}
-
-fn parse_repeating_section(lines: &Vec<&str>, is_section_header: impl Fn(&str) -> bool) -> Items {
-    let mut items = vec![];
-    let mut in_section = false;
-    let mut section_indices = vec![];
-    for line in lines {
-        if is_section_header(line) {
-            in_section = true;
-            section_indices.push(items.len());
-        } else if in_section && is_item_entry(line) {
-            items.push(line.to_string());
-        } else {
-            in_section = false;
-        }
-    }
-
-    // It's possible for sections to exist with no items. If this happens,
-    // there could be one or more indices on the section_indices stack that have indices
-    // past the end of the items. For example:
-    // ## Monday, 1st
-    // - Task 1 (day_index gets pushed as 0 as the length before this was 0)
-    // ## Tuesday, 2nd
-    // <eof>
-    // As Tuesday is a new day, the length of 1 would get pushed onto the day_indices stack).
-    // So we need to continue popping until we have an index that reflects the last day entry with
-    // task entries in it (0 in the above case).
-    let mut recent_start = 0;
-    while let Some(idx) = section_indices.pop() {
-        recent_start = idx;
-        if recent_start < items.len() {
-            break;
-        }
-    }
-
-    Items {
-        list: items,
-        recent_start,
+    let caps = task_re.captures(line).unwrap();
+    Task {
+        status: caps[1].to_string(),
+        category: caps[2].to_string(),
+        title: caps[3].to_string(),
+        date: NaiveDate::from_ymd(year, month, day),
     }
 }
 
