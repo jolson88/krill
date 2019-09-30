@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate, Weekday};
 use regex::Regex;
 use std::env;
 use std::fmt;
@@ -8,18 +8,35 @@ use std::io::prelude::*;
 extern crate chrono;
 extern crate regex;
 
+/// Goals and tasks are modeled primarily as a simple vector of tasks so that they are easily
+/// iterable and filterable in a single pass without tree walking. At the same time, we store the
+/// indices of goals and tasks in weeks and days into these flat vectors. This allows us to
+/// serialize the journal back out to a file by effectively "rebuilding the tree" of relationships.
 struct Journal {
     milestones: Vec<String>,
     backlog: Vec<Task>,
+    weeks: Vec<JournalWeek>,
+    days: Vec<JournalDay>,
     goals: Vec<Task>,
     tasks: Vec<Task>,
+}
+
+struct JournalWeek {
+    /// Indices of this week's goals
+    goals: Vec<usize>,
+    /// Indices of the days in this week
+    days: Vec<usize>,
+}
+
+struct JournalDay {
+    date: chrono::NaiveDate,
+    tasks: Vec<usize>,
 }
 
 struct Task {
     status: String,
     category: String,
     title: String,
-    #[allow(dead_code)]
     date: chrono::NaiveDate,
 }
 
@@ -37,6 +54,35 @@ impl fmt::Display for Task {
     }
 }
 
+impl fmt::Display for Journal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Write milestones
+        write!(f, "# Milestones\n")?;
+        for m in &self.milestones {
+            write!(f, "{}\n", m)?;
+        }
+        write!(f, "\n# Backlog\n")?;
+        for t in &self.backlog {
+            write!(f, "{}\n", t)?;
+        }
+        for w in &self.weeks {
+            write!(f, "\n## Weekly Goals\n")?;
+            for g in &w.goals {
+                write!(f, "{}\n", self.goals[*g])?;
+            }
+            for d in &w.days {
+                let day = &self.days[*d];
+                // TODO: Implement ToString Trait for Weekday for easier serialization
+                write!(f, "\n## {:?}, {}\n", day.date.weekday(), day.date.day())?;
+                for t in &day.tasks {
+                    write!(f, "{}\n", self.tasks[*t])?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
     let filename = &args[1];
@@ -46,11 +92,7 @@ fn main() -> std::io::Result<()> {
     let lines: Vec<&str> = contents.lines().collect();
     let journal = parse_month(&lines, 2019, 9);
 
-    println!("Found {} milestones", journal.milestones.len());
-    println!("Found {} tasks in backlog", journal.backlog.len());
-    println!("Found {} goals in week", journal.goals.len());
-    println!("Found {} tasks in day", journal.tasks.len());
-
+    println!("{}", journal);
     Ok(())
 }
 
@@ -58,6 +100,8 @@ fn parse_month(lines: &[&str], year: i32, month: u32) -> Journal {
     let mut journal = Journal {
         milestones: Vec::new(),
         backlog: Vec::new(),
+        weeks: Vec::new(),
+        days: Vec::new(),
         goals: Vec::new(),
         tasks: Vec::new(),
     };
@@ -73,9 +117,27 @@ fn parse_month(lines: &[&str], year: i32, month: u32) -> Journal {
                 journal.backlog.append(&mut tasks);
             }
             FileSection::Week(mut goals) => {
+                let start_goal = journal.goals.len();
+                let end_goal = start_goal + goals.len();
+
+                journal.weeks.push(JournalWeek {
+                    goals: (start_goal..end_goal).collect(),
+                    days: Vec::new(),
+                });
                 journal.goals.append(&mut goals);
             }
             FileSection::Day(mut tasks) => {
+                let start_task = journal.tasks.len();
+                let end_task = start_task + tasks.len();
+
+                let day_idx = journal.days.len();
+                journal.days.push(JournalDay {
+                    date: tasks[0].date,
+                    tasks: (start_task..end_task).collect(),
+                });
+                // If there isn't a "current week" (last week in the vec), something went wrong
+                assert!(journal.weeks.len() > 0);
+                journal.weeks.last_mut().unwrap().days.push(day_idx);
                 journal.tasks.append(&mut tasks);
             }
             _ => {
