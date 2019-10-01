@@ -66,20 +66,37 @@ impl fmt::Display for Journal {
             write!(f, "{}\n", t)?;
         }
         for w in &self.weeks {
-            write!(f, "\n## Weekly Goals\n")?;
+            write!(f, "\n# Weekly Goals\n")?;
             for g in &w.goals {
                 write!(f, "{}\n", self.goals[*g])?;
             }
             for d in &w.days {
                 let day = &self.days[*d];
                 // TODO: Implement ToString Trait for Weekday for easier serialization
-                write!(f, "\n## {:?}, {}\n", day.date.weekday(), day.date.day())?;
+                write!(
+                    f,
+                    "\n## {}, {}\n",
+                    weekday_to_string(day.date.weekday()),
+                    day.date.day()
+                )?;
                 for t in &day.tasks {
                     write!(f, "{}\n", self.tasks[*t])?;
                 }
             }
         }
         Ok(())
+    }
+}
+
+fn weekday_to_string(wd: Weekday) -> String {
+    match wd {
+        Weekday::Sun => "Sunday".to_string(),
+        Weekday::Mon => "Monday".to_string(),
+        Weekday::Tue => "Tuesday".to_string(),
+        Weekday::Wed => "Wednesday".to_string(),
+        Weekday::Thu => "Thursday".to_string(),
+        Weekday::Fri => "Friday".to_string(),
+        Weekday::Sat => "Saturday".to_string(),
     }
 }
 
